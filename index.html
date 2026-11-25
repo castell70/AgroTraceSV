@@ -1,0 +1,1081 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AgroTrace SV · Trazabilidad Agropecuaria de El Salvador</title>
+
+<!-- Leaflet CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+<style>
+  :root{
+    --bg:#f0f4f0; --surface:#ffffff; --surface-alt:#f8fbf8;
+    --ink:#12281e; --muted:#5b7268;
+    --primary:#157f4a; --primary-light:#0e9f6e; --primary-dark:#0c5133;
+    --accent:#0d6e8a;
+    --line:#dbe4dd;
+    --shadow-sm:0 1px 3px rgba(18,40,30,.06);
+    --shadow:0 4px 16px rgba(18,40,30,.08);
+    --radius:16px; --radius-sm:10px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:"Segoe UI",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif;background:var(--bg);color:var(--ink);line-height:1.55;-webkit-font-smoothing:antialiased}
+  h1,h2,h3,h4{line-height:1.2}
+  button,select,input{font-family:inherit;font-size:inherit}
+  .wrap{max-width:1440px;margin:0 auto;padding:0 22px}
+
+  /* ================= HEADER ================= */
+  .app-header{background:linear-gradient(135deg,#0c5133 0%,#157f4a 60%,#0e9f6e 100%);color:#fff;padding:16px 0;position:sticky;top:0;z-index:1000;box-shadow:0 4px 24px rgba(12,81,51,.3)}
+  .app-header .wrap{display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap}
+  .brand{display:flex;align-items:center;gap:14px}
+  .logo{width:52px;height:52px;border-radius:16px;display:grid;place-items:center;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);font-size:26px;backdrop-filter:blur(8px)}
+  .brand h1{font-size:1.5rem;letter-spacing:-.5px;font-weight:800}
+  .brand h1 span{color:#a7f3c8}
+  .brand p{margin-top:3px;font-size:.78rem;opacity:.85}
+  .header-meta{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .pill{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.25);padding:6px 14px;border-radius:999px;font-size:.72rem;font-weight:600;display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
+  .dot-live{width:8px;height:8px;border-radius:50%;background:#7dffb0;box-shadow:0 0 0 0 rgba(125,255,176,.7);animation:pulse 2s infinite}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(125,255,176,.7)}70%{box-shadow:0 0 0 8px rgba(125,255,176,0)}100%{box-shadow:0 0 0 0 rgba(125,255,176,0)}}
+
+  @keyframes blinkSlow {0%,100%{opacity:1}50%{opacity:.25}}
+  .powered-by{animation:blinkSlow 3s infinite;font-weight:700;font-size:.78rem;letter-spacing:.8px;color:#a7f3c8;text-transform:uppercase;white-space:nowrap;padding:6px 12px;border:1px solid rgba(255,255,255,.25);border-radius:999px;background:rgba(255,255,255,.08)}
+
+  /* ================= TABS ================= */
+  .tabs{background:var(--surface);border-bottom:1px solid var(--line);position:sticky;top:84px;z-index:900}
+  .tabs .wrap{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none}
+  .tabs .wrap::-webkit-scrollbar{display:none}
+  .tab{background:none;border:none;padding:16px 22px;cursor:pointer;font-weight:700;font-size:.85rem;color:var(--muted);border-bottom:3px solid transparent;white-space:nowrap;transition:.2s;display:flex;align-items:center;gap:8px}
+  .tab:hover{color:var(--primary);background:var(--surface-alt)}
+  .tab.active{color:var(--primary-dark);border-bottom-color:var(--primary)}
+  .tab .ico{font-size:1.1rem}
+
+  /* ================= LAYOUT ================= */
+  main{padding:24px 0 60px}
+  .panel{display:none}
+  .panel.active{display:block;animation:fade .3s ease}
+  @keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow-sm);padding:20px;transition:box-shadow .2s}
+  .card:hover{box-shadow:var(--shadow)}
+  .card h3{font-size:.95rem;display:flex;align-items:center;gap:8px;margin-bottom:4px}
+  .card .sub{font-size:.75rem;color:var(--muted);margin-bottom:16px}
+
+  .filterbar{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow-sm);padding:16px 18px;margin-bottom:20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:12px;align-items:end}
+  .field label{display:block;font-size:.68rem;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);margin-bottom:5px}
+  .field select,.field input{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:9px;background:var(--surface-alt);color:var(--ink);outline:none;transition:.15s;font-size:.85rem}
+  .field select:focus,.field input:focus{border-color:var(--primary-light);box-shadow:0 0 0 3px rgba(14,159,110,.12);background:#fff}
+  .btn{padding:10px 18px;border-radius:9px;border:1px solid transparent;cursor:pointer;font-weight:700;font-size:.82rem;transition:.15s;display:inline-flex;align-items:center;gap:7px}
+  .btn-primary{background:var(--primary);color:#fff}
+  .btn-primary:hover{background:var(--primary-dark)}
+  .btn-ghost{background:var(--surface-alt);color:var(--ink);border-color:var(--line)}
+  .btn-ghost:hover{background:#e8efe9}
+  .btn-accent{background:var(--accent);color:#fff}
+  .btn-accent:hover{background:#0a5a72}
+
+  .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(175px,1fr));gap:14px;margin-bottom:20px}
+  .kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px;box-shadow:var(--shadow-sm);position:relative;overflow:hidden}
+  .kpi::before{content:"";position:absolute;inset:0 auto 0 0;width:4px;background:var(--primary-light);border-radius:0 3px 3px 0}
+  .kpi.k2::before{background:var(--accent)}
+  .kpi.k3::before{background:#d97706}
+  .kpi.k4::before{background:#7c3aed}
+  .kpi.k5::before{background:#dc2626}
+  .kpi .lbl{font-size:.68rem;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:var(--muted)}
+  .kpi .val{font-size:1.75rem;font-weight:800;letter-spacing:-1px;margin-top:6px;line-height:1}
+  .kpi .val small{font-size:.8rem;font-weight:600;color:var(--muted);margin-left:3px}
+  .kpi .hint{font-size:.7rem;color:var(--muted);margin-top:5px}
+
+  .grid-main{display:grid;grid-template-columns:1.5fr 1fr;gap:20px;margin-bottom:20px}
+  .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px}
+  @media (max-width:1080px){.grid-main,.grid-2{grid-template-columns:1fr}}
+
+  /* ================= MAP ================= */
+  #map{width:100%;height:440px;border-radius:var(--radius-sm);overflow:hidden;border:1px solid var(--line);background:#e8f1ea}
+  .map-toolbar{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap}
+  .map-toolbar .legend{display:flex;gap:14px;font-size:.7rem;color:var(--muted);flex-wrap:wrap}
+  .legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:middle}
+  .leaflet-container{font-family:inherit}
+  .leaflet-popup-content{font-size:.8rem;line-height:1.5}
+  .leaflet-popup-content b{color:var(--primary-dark)}
+
+  .bars{display:flex;flex-direction:column;gap:10px}
+  .bar-row{display:grid;grid-template-columns:115px 1fr 68px;align-items:center;gap:10px;font-size:.78rem}
+  .bar-label{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .bar-track{background:#eaf1ec;border-radius:6px;height:16px;overflow:hidden}
+  .bar-fill{height:100%;border-radius:6px;transition:width .6s cubic-bezier(.2,.8,.3,1)}
+  .bar-val{text-align:right;color:var(--muted);font-variant-numeric:tabular-nums;font-weight:700}
+
+  .donut-wrap{display:flex;align-items:center;gap:20px;flex-wrap:wrap}
+  .donut{width:130px;height:130px;border-radius:50%;position:relative;flex-shrink:0;transition:background .3s}
+  .donut::after{content:"";position:absolute;inset:26px;border-radius:50%;background:var(--surface);box-shadow:inset 0 0 0 1px var(--line)}
+  .donut-center{position:absolute;inset:0;display:grid;place-items:center;z-index:2;font-size:.7rem;color:var(--muted);text-align:center;line-height:1.2}
+  .donut-center b{display:block;font-size:1.15rem;color:var(--ink)}
+  .donut-legend{display:flex;flex-direction:column;gap:8px;font-size:.76rem;flex:1;min-width:130px}
+  .donut-legend div{display:flex;align-items:center;gap:8px;justify-content:space-between}
+  .donut-legend .k{display:flex;align-items:center;gap:7px}
+  .donut-legend i{width:9px;height:9px;border-radius:3px;display:inline-block}
+  .donut-legend b{font-variant-numeric:tabular-nums}
+
+  .spark{width:100%;height:130px;display:block}
+
+  .trace-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+  .trace-list{display:flex;flex-direction:column;gap:10px}
+  .trow{background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow-sm);overflow:hidden;transition:.2s}
+  .trow:hover{border-color:#b9d6c6;box-shadow:var(--shadow)}
+  .trow-head{padding:14px 18px;display:grid;grid-template-columns:135px 1.4fr 1.1fr 110px 130px 26px;gap:12px;align-items:center;cursor:pointer;font-size:.82rem}
+  @media (max-width:900px){.trow-head{grid-template-columns:1fr 1fr;row-gap:8px}}
+  .code{font-family:ui-monospace,"Cascadia Code",Consolas,monospace;font-size:.72rem;font-weight:700;color:var(--primary-dark);background:#e8f5ee;padding:3px 8px;border-radius:6px;display:inline-block}
+  .tprod{font-weight:700}
+  .tprod small{display:block;font-weight:500;color:var(--muted);font-size:.72rem}
+  .badge{font-size:.66rem;font-weight:800;letter-spacing:.4px;padding:4px 10px;border-radius:999px;text-transform:uppercase;white-space:nowrap;display:inline-block}
+  .b-campo{background:#e6f0ff;color:#1d4ed8}
+  .b-cosecha{background:#fff4e0;color:#b45309}
+  .b-almacen{background:#e8f5ee;color:#157f4a}
+  .b-transito{background:#f3e8ff;color:#7c3aed}
+  .b-venta{background:#dcfce7;color:#166534}
+  .chev{transition:transform .2s;color:var(--muted);font-size:.8rem}
+  .trow.open .chev{transform:rotate(90deg)}
+  .trow-body{display:none;border-top:1px dashed var(--line);background:var(--surface-alt);padding:18px}
+  .trow.open .trow-body{display:block;animation:fade .2s ease}
+
+  .chain{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:16px}
+  .chain-step{background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px 13px;position:relative}
+  .chain-step .n{font-size:.63rem;font-weight:800;letter-spacing:.6px;color:var(--primary);text-transform:uppercase}
+  .chain-step .t{font-weight:700;font-size:.82rem;margin-top:3px}
+  .chain-step .d{font-size:.72rem;color:var(--muted);margin-top:2px}
+  .chain-step.done{border-color:#9fd8b8;background:#f2fbf5}
+  .chain-step.pending{opacity:.55;border-style:dashed}
+
+  .detail-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:10px}
+  .detail-grid div{background:#fff;border:1px solid var(--line);border-radius:9px;padding:10px 12px}
+  .detail-grid span{display:block;font-size:.64rem;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);font-weight:800}
+  .detail-grid b{font-size:.85rem}
+
+  .intel-head{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;flex-wrap:wrap;margin-bottom:18px}
+  .intel-title h2{font-size:1.35rem;letter-spacing:-.4px}
+  .intel-title p{color:var(--muted);font-size:.83rem;margin-top:4px}
+  .source-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(310px,1fr));gap:14px}
+  .src-card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;box-shadow:var(--shadow-sm);display:flex;flex-direction:column;gap:8px;transition:.2s}
+  .src-card:hover{transform:translateY(-2px);border-color:#b9d6c6;box-shadow:var(--shadow)}
+  .src-top{display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .src-badge{font-size:.62rem;font-weight:800;letter-spacing:.5px;text-transform:uppercase;padding:3px 9px;border-radius:6px;background:#e8f5ee;color:var(--primary-dark)}
+  .src-badge.api{background:#e6f0ff;color:#1d4ed8}
+  .src-badge.local{background:#fff4e0;color:#b45309}
+  .src-badge.inst{background:#f3e8ff;color:#7c3aed}
+  .score{font-size:.66rem;font-weight:800;color:var(--muted);background:var(--surface-alt);border:1px solid var(--line);padding:3px 8px;border-radius:6px}
+  .src-card h4{font-size:.9rem}
+  .src-card p{font-size:.78rem;color:#31473c;flex:1}
+  .src-card a{font-size:.74rem;color:var(--accent);font-weight:700;text-decoration:none;word-break:break-all}
+  .src-card a:hover{text-decoration:underline}
+
+  .wb-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(185px,1fr));gap:12px;margin-bottom:18px}
+  .wb-card{background:linear-gradient(160deg,#ffffff,#f3f9f5);border:1px solid var(--line);border-radius:12px;padding:15px;box-shadow:var(--shadow-sm)}
+  .wb-card .lbl{font-size:.66rem;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);font-weight:800;min-height:28px}
+  .wb-card .v{font-size:1.5rem;font-weight:800;letter-spacing:-.5px;margin-top:4px;color:var(--primary-dark)}
+  .wb-card .y{font-size:.68rem;color:var(--muted)}
+
+  .loading{display:flex;flex-direction:column;align-items:center;gap:14px;padding:50px 20px;color:var(--muted);font-size:.85rem}
+  .spinner{width:38px;height:38px;border:3px solid #d9e7de;border-top-color:var(--primary);border-radius:50%;animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .empty{padding:40px 20px;text-align:center;color:var(--muted);font-size:.85rem}
+  .notice{background:#fff8e6;border:1px solid #f3d9a0;color:#8a5a00;padding:12px 15px;border-radius:10px;font-size:.78rem;margin-bottom:16px}
+
+  .help-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px}
+  .help-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow-sm)}
+  .help-card h4{font-size:.95rem;margin-bottom:8px;display:flex;align-items:center;gap:8px}
+  .help-card p, .help-card li{font-size:.82rem;color:#31473c;margin-bottom:6px}
+  .help-card ul{padding-left:18px}
+
+  .report-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px;margin-bottom:20px}
+  .report-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow-sm);display:flex;flex-direction:column;gap:10px}
+  .report-card h4{font-size:.95rem}
+  .report-card p{font-size:.78rem;color:var(--muted);flex:1}
+  .report-card .btn{width:100%;justify-content:center}
+
+  footer{background:#0c1f17;color:#c7d8ce;padding:28px 0 32px;margin-top:20px;border-top:4px solid var(--primary-light)}
+  footer .wrap{display:flex;justify-content:space-between;align-items:center;gap:18px;flex-wrap:wrap}
+  footer .fname{font-weight:800;font-size:1rem;color:#fff;letter-spacing:-.2px}
+  footer .fmeta{font-size:.76rem;margin-top:3px;opacity:.8}
+  footer .ftag{font-size:.7rem;opacity:.6;text-align:right}
+  footer .fright{text-align:right}
+</style>
+</head>
+<body>
+
+<header class="app-header">
+  <div class="wrap">
+    <div class="brand">
+      <div class="logo">🌱</div>
+      <div>
+        <h1>AgroTrace <span>SV</span></h1>
+        <p>Sistema de Trazabilidad Agropecuaria y Resiliencia Climática · El Salvador</p>
+      </div>
+    </div>
+    <div class="header-meta">
+      <span class="pill">AFCIA · Fondo de Adaptación</span>
+      <span class="pill"><span class="dot-live"></span><span id="liveClock">--:--:--</span></span>
+      <span class="powered-by">Powered by ITCPO</span>
+    </div>
+  </div>
+</header>
+
+<nav class="tabs">
+  <div class="wrap">
+    <button class="tab active" data-tab="panel"><span class="ico">📊</span> Panel de Control</button>
+    <button class="tab" data-tab="trace"><span class="ico">🔗</span> Trazabilidad</button>
+    <button class="tab" data-tab="intel"><span class="ico">🛰️</span> Inteligencia Territorial</button>
+    <button class="tab" data-tab="help"><span class="ico">❓</span> Ayuda</button>
+    <button class="tab" data-tab="reports"><span class="ico">📄</span> Reportes</button>
+  </div>
+</nav>
+
+<main>
+<div class="wrap">
+
+<!-- ================= PANEL ================= -->
+<section class="panel active" id="panel-panel">
+
+  <div class="filterbar">
+    <div class="field"><label>Departamento</label><select id="fDept"><option value="">Todos</option></select></div>
+    <div class="field"><label>Municipio</label><select id="fMuni"><option value="">Todos</option></select></div>
+    <div class="field"><label>Producto</label><select id="fProd"><option value="">Todos</option></select></div>
+    <div class="field">
+      <label>Estado de lote</label>
+      <select id="fStatus">
+        <option value="">Todos</option>
+        <option>En campo</option><option>Cosechado</option><option>Almacenado</option>
+        <option>En tránsito</option><option>Comercializado</option>
+      </select>
+    </div>
+    <div class="field"><label>Buscar granja / código</label><input id="fSearch" type="text" placeholder="Ej. Finca La Esperanza"></div>
+    <div class="field"><label>&nbsp;</label><button class="btn btn-ghost" id="btnReset">↺ Limpiar filtros</button></div>
+  </div>
+
+  <div class="kpi-grid">
+    <div class="kpi"><div class="lbl">Granjas registradas</div><div class="val" id="kFarm">0</div><div class="hint" id="kFarmHint">en todo el país</div></div>
+    <div class="kpi k2"><div class="lbl">Volumen trazado</div><div class="val" id="kVol">0<small>t</small></div><div class="hint">producción acumulada</div></div>
+    <div class="kpi k3"><div class="lbl">Productos activos</div><div class="val" id="kProd">0</div><div class="hint">rubros agropecuarios</div></div>
+    <div class="kpi k4"><div class="lbl">Municipios cubiertos</div><div class="val" id="kMuni">0</div><div class="hint">de 262 en el país</div></div>
+    <div class="kpi k5"><div class="lbl">Lotes certificados</div><div class="val" id="kCert">0<small>%</small></div><div class="hint">agroecológico / orgánico</div></div>
+  </div>
+
+  <div class="grid-main">
+    <div class="card">
+      <div class="map-toolbar">
+        <div>
+          <h3>🗺️ Mapa interactivo de El Salvador · OpenStreetMap</h3>
+          <div class="sub" style="margin-bottom:0">Haz clic en un departamento para filtrar y consultar estadísticas en línea</div>
+        </div>
+        <div class="legend">
+          <span><i style="background:#bfe3cc"></i>Sin datos</span>
+          <span><i style="background:#8fd4a9"></i>Con datos</span>
+          <span><i style="background:#157f4a"></i>Seleccionado</span>
+          <span><i style="background:#0d6e8a;border-radius:50%"></i>Granja</span>
+        </div>
+      </div>
+      <div id="map"></div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:20px">
+      <div class="card">
+        <h3>🥑 Volumen por producto</h3>
+        <div class="sub">Toneladas equivalentes según filtros activos</div>
+        <div class="bars" id="chartProducts"></div>
+      </div>
+      <div class="card">
+        <h3>📦 Distribución por estado</h3>
+        <div class="sub">Etapa actual de los lotes en la cadena</div>
+        <div class="donut-wrap">
+          <div class="donut" id="donut"><div class="donut-center"><div><b id="donutTotal">0</b>lotes</div></div></div>
+          <div class="donut-legend" id="donutLegend"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <h3>📈 Evolución mensual de cosecha</h3>
+      <div class="sub">Volumen registrado por mes (toneladas)</div>
+      <svg class="spark" id="chartLine" viewBox="0 0 400 130" preserveAspectRatio="none"></svg>
+    </div>
+    <div class="card">
+      <h3>🏆 Departamentos con mayor volumen</h3>
+      <div class="sub">Top según los filtros aplicados</div>
+      <div class="bars" id="chartDepts"></div>
+    </div>
+  </div>
+
+</section>
+
+<!-- ================= TRAZABILIDAD ================= -->
+<section class="panel" id="panel-trace">
+  <div class="trace-head">
+    <div>
+      <h2 style="font-size:1.2rem;letter-spacing:-.3px">🔗 Cadena de trazabilidad por lote</h2>
+      <p style="color:var(--muted);font-size:.82rem;margin-top:3px">Granja → Zona → Departamento → Municipio → Almacenamiento → Mercado</p>
+    </div>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <span class="pill" style="background:#e8f5ee;color:var(--primary-dark);border-color:#c9e6d5">Lotes visibles: <b id="traceCount">0</b></span>
+      <button class="btn btn-ghost" id="btnExpandAll">Expandir todo</button>
+    </div>
+  </div>
+  <div class="trace-list" id="traceList"></div>
+</section>
+
+<!-- ================= INTELIGENCIA ================= -->
+<section class="panel" id="panel-intel">
+  <div class="intel-head">
+    <div class="intel-title">
+      <h2 id="intelTitle">🛰️ Inteligencia territorial</h2>
+      <p id="intelSub">Selecciona un departamento en el mapa o en los filtros para ejecutar el motor de búsqueda multifuente.</p>
+    </div>
+    <div style="display:flex;gap:10px">
+      <select id="intelSelect" style="padding:9px 12px;border:1px solid var(--line);border-radius:9px;background:#fff;font-weight:600"></select>
+      <button class="btn btn-primary" id="btnSearch">🔍 Ejecutar búsqueda</button>
+    </div>
+  </div>
+  <div id="intelBody">
+    <div class="empty">Sin búsqueda ejecutada todavía.<br>El motor consulta Wikipedia (API REST), Banco Mundial (API de indicadores) y fuentes institucionales indexadas.</div>
+  </div>
+</section>
+
+<!-- ================= AYUDA ================= -->
+<section class="panel" id="panel-help">
+  <h2 style="font-size:1.35rem;letter-spacing:-.4px;margin-bottom:6px">❓ Centro de ayuda</h2>
+  <p style="color:var(--muted);font-size:.85rem;margin-bottom:22px">Guía rápida para aprovechar al máximo las funcionalidades de AgroTrace SV.</p>
+
+  <div class="help-grid">
+    <div class="help-card">
+      <h4>📊 Panel de Control</h4>
+      <p>Visualiza el estado general de la trazabilidad agropecuaria. Los filtros superiores permiten acotar por departamento, municipio, producto, estado de lote o búsqueda por texto.</p>
+      <ul>
+        <li>Haz clic en un departamento del mapa para filtrar automáticamente.</li>
+        <li>Los KPIs se actualizan en tiempo real según los filtros.</li>
+        <li>Los gráficos de barras, dona y línea reflejan los datos filtrados.</li>
+      </ul>
+    </div>
+    <div class="help-card">
+      <h4>🗺️ Mapa OpenStreetMap</h4>
+      <p>El mapa base utiliza las teselas estándar de OpenStreetMap, de uso libre y sin API key. Los puntos azules representan granjas georreferenciadas.</p>
+      <ul>
+        <li>Usa la rueda del ratón para hacer zoom.</li>
+        <li>El mapa está restringido a los límites de El Salvador.</li>
+        <li>Los departamentos se colorean según los filtros activos.</li>
+      </ul>
+    </div>
+    <div class="help-card">
+      <h4>🔗 Trazabilidad</h4>
+      <p>Consulta la cadena completa de cada lote: siembra, cosecha, almacenamiento, transporte y mercado.</p>
+      <ul>
+        <li>Haz clic en una fila para expandir el detalle del lote.</li>
+        <li>El código único permite rastrear el producto hasta su origen.</li>
+        <li>Los estados se muestran con colores distintivos.</li>
+      </ul>
+    </div>
+    <div class="help-card">
+      <h4>🛰️ Inteligencia Territorial</h4>
+      <p>Ejecuta búsquedas multifuente sobre el departamento seleccionado. El motor consulta Wikipedia, Banco Mundial y fuentes institucionales.</p>
+      <ul>
+        <li>Los resultados se ordenan por relevancia.</li>
+        <li>Incluye indicadores agrícolas nacionales del Banco Mundial.</li>
+        <li>Si no hay conexión, se muestran los datos locales.</li>
+      </ul>
+    </div>
+    <div class="help-card">
+      <h4>📄 Reportes</h4>
+      <p>Genera documentos PDF con los datos más relevantes del sistema.</p>
+      <ul>
+        <li><b>Reporte general:</b> resumen de KPIs y gráficos.</li>
+        <li><b>Reporte por departamento:</b> detalle de granjas y productos.</li>
+        <li><b>Reporte de trazabilidad:</b> listado completo de lotes.</li>
+      </ul>
+    </div>
+    <div class="help-card">
+      <h4>💡 Consejos de uso</h4>
+      <p>Aprovecha al máximo las combinaciones de filtros y la inteligencia territorial.</p>
+      <ul>
+        <li>Combina departamento + producto para análisis focalizados.</li>
+        <li>Usa el buscador de texto para localizar una granja por código.</li>
+        <li>Exporta el reporte por departamento para auditorías.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ================= REPORTES ================= -->
+<section class="panel" id="panel-reports">
+  <h2 style="font-size:1.35rem;letter-spacing:-.4px;margin-bottom:6px">📄 Generación de reportes</h2>
+  <p style="color:var(--muted);font-size:.85rem;margin-bottom:22px">Descarga reportes en PDF con la información más significativa del sistema.</p>
+
+  <div class="report-grid">
+    <div class="report-card">
+      <h4>📊 Reporte general</h4>
+      <p>Resumen ejecutivo con KPIs, volumen por producto, distribución por estado y evolución mensual.</p>
+      <button class="btn btn-primary" onclick="generateGeneralPDF()">📥 Descargar PDF</button>
+    </div>
+    <div class="report-card">
+      <h4>🏢 Reporte por departamento</h4>
+      <p>Detalle de granjas, productos y volúmenes del departamento seleccionado actualmente en los filtros.</p>
+      <button class="btn btn-accent" onclick="generateDeptPDF()">📥 Descargar PDF</button>
+    </div>
+    <div class="report-card">
+      <h4>🔗 Reporte de trazabilidad</h4>
+      <p>Listado completo de lotes con su cadena de trazabilidad, estado, certificación y valor estimado.</p>
+      <button class="btn btn-primary" onclick="generateTracePDF()">📥 Descargar PDF</button>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:6px">
+    <h3>ℹ️ Nota sobre los reportes</h3>
+    <p style="font-size:.82rem;color:var(--muted)">Los PDFs se generan del lado del cliente utilizando la librería jsPDF. No se envía información a servidores externos. El contenido refleja el estado actual de los filtros aplicados en el Panel de Control.</p>
+  </div>
+</section>
+
+</div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div>
+      <div class="fname">AgroTrace SV</div>
+      <div class="fmeta">Proyecto Integrador · Fomento de la innovación agroecológica y resiliente en El Salvador</div>
+      <div class="fmeta">Acelerador de Innovación Climática del Fondo de Adaptación (AFCIA)</div>
+    </div>
+    <div class="fright">
+      <div class="fname" style="font-size:.92rem">Carlos Alfredo Castillo Flores</div>
+      <div class="fmeta">ITCPO · 2026</div>
+      <div class="ftag">© 2026 · Todos los derechos reservados</div>
+    </div>
+  </div>
+</footer>
+
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<!-- jsPDF -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<script>
+/* ==========================================================
+   0. UTILIDADES
+========================================================== */
+const $ = (s, c=document) => c.querySelector(s);
+const $$ = (s, c=document) => [...c.querySelectorAll(s)];
+const nf = n => Number(n).toLocaleString('es-SV');
+const nf1 = n => Number(n).toLocaleString('es-SV',{maximumFractionDigits:1});
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+
+/* ==========================================================
+   1. DEPARTAMENTOS
+========================================================== */
+const DEPTS = [
+  {id:'AH', name:'Ahuachapán', center:[13.87,-89.85], munis:['Ahuachapán','Atiquizaya','El Refugio','San Lorenzo','Turín']},
+  {id:'SA', name:'Santa Ana', center:[14.00,-89.55], munis:['Santa Ana','Chalchuapa','Coatepeque','Metapán','Texistepeque']},
+  {id:'SO', name:'Sonsonate', center:[13.72,-89.72], munis:['Sonsonate','Acajutla','Armenia','Izalco','Nahuizalco']},
+  {id:'CH', name:'Chalatenango', center:[14.25,-89.05], munis:['Chalatenango','La Palma','Tejutla','Nueva Concepción','Dulce Nombre de María']},
+  {id:'LL', name:'La Libertad', center:[13.70,-89.35], munis:['Santa Tecla','Antiguo Cuscatlán','Colón','Quezaltepeque','San Juan Opico']},
+  {id:'SS', name:'San Salvador', center:[13.70,-89.20], munis:['San Salvador','Soyapango','Apopa','Mejicanos','Ilopango']},
+  {id:'CU', name:'Cuscatlán', center:[13.72,-88.95], munis:['Cojutepeque','Suchitoto','El Carmen','San Rafael Cedros','Tenancingo']},
+  {id:'LP', name:'La Paz', center:[13.45,-88.90], munis:['Zacatecoluca','Olocuilta','San Luis Talpa','Santiago Nonualco','San Pedro Masahuat']},
+  {id:'CA', name:'Cabañas', center:[13.85,-88.65], munis:['Sensuntepeque','Ilobasco','Victoria','Dolores','Guacotecti']},
+  {id:'SV', name:'San Vicente', center:[13.55,-88.75], munis:['San Vicente','Tecoluca','Apastepeque','San Ildefonso','Verapaz']},
+  {id:'US', name:'Usulután', center:[13.35,-88.45], munis:['Usulután','Jiquilisco','Santiago de María','Berlín','Jucuapa']},
+  {id:'MO', name:'Morazán', center:[13.75,-88.10], munis:['San Francisco Gotera','Jocoro','Corinto','Osicala','Arambala']},
+  {id:'SM', name:'San Miguel', center:[13.45,-88.20], munis:['San Miguel','Chinameca','El Tránsito','Nueva Guadalupe','San Rafael Oriente']},
+  {id:'LU', name:'La Unión', center:[13.35,-87.85], munis:['La Unión','Conchagua','Santa Rosa de Lima','Pasaquina','El Carmen']}
+];
+
+/* Límites geográficos de El Salvador para restringir el mapa */
+const SV_BOUNDS = [[13.10,-90.20],[14.50,-87.60]];
+const SV_CENTER = [13.80,-88.90];
+
+/* ==========================================================
+   2. DATOS SIMULADOS
+========================================================== */
+const PRODUCTS = [
+  {n:'Maíz',           c:'#e0a300', u:'t'},
+  {n:'Frijol',         c:'#8b5e3c', u:'t'},
+  {n:'Café',           c:'#6b4226', u:'qq'},
+  {n:'Caña de azúcar', c:'#4caf50', u:'t'},
+  {n:'Hortalizas',     c:'#66bb6a', u:'t'},
+  {n:'Frutas',         c:'#ef5350', u:'t'},
+  {n:'Lácteos',        c:'#90a4ae', u:'L'},
+  {n:'Miel',           c:'#ffb300', u:'kg'},
+  {n:'Cacao',          c:'#5d4037', u:'t'},
+  {n:'Ajonjolí',       c:'#d4b483', u:'t'},
+  {n:'Sorgo',          c:'#c98b3c', u:'t'},
+  {n:'Plátano',        c:'#fdd835', u:'t'}
+];
+const STATUSES = ['En campo','Cosechado','Almacenado','En tránsito','Comercializado'];
+const ZONES = ['Zona Alta','Zona Media','Zona Baja','Zona Costera','Zona Norte','Zona Sur'];
+const CERTS = ['Agroecológico','Orgánico','BPA','Sin certificar','Comercio Justo'];
+const FARM_PREFIX = ['Finca','Granja','Cooperativa','Asociación','Parcelamiento'];
+const FARM_NAMES = ['La Esperanza','El Roble','Los Ángeles','San José','El Porvenir','La Montaña','Santa Rita','El Edén','Las Colinas','Buena Vista','El Mirador','La Cascada','Los Pinos','San Antonio','El Rosario','Nueva Esperanza','La Trinidad','El Progreso','Vista Hermosa','Monte Verde','La Ceiba','El Amate','Los Naranjos','San Isidro','Las Delicias'];
+
+function buildDataset(){
+  const rnd = mulberry32(20260101);
+  const rows = []; let counter = 1;
+  DEPTS.forEach(d => {
+    d.munis.forEach(muni => {
+      const nFarms = 1 + Math.floor(rnd()*3);
+      for (let k=0; k<nFarms; k++){
+        const prod = PRODUCTS[Math.floor(rnd()*PRODUCTS.length)];
+        const farmName = `${FARM_PREFIX[Math.floor(rnd()*FARM_PREFIX.length)]} ${FARM_NAMES[Math.floor(rnd()*FARM_NAMES.length)]}`;
+        const zone = ZONES[Math.floor(rnd()*ZONES.length)];
+        const status = STATUSES[Math.floor(rnd()*STATUSES.length)];
+        const cert = CERTS[Math.floor(rnd()*CERTS.length)];
+        const areaHa = +(0.5 + rnd()*22).toFixed(2);
+        const yieldByHa = prod.u==='kg' ? (30+rnd()*200) : (prod.n==='Café' ? (8+rnd()*22) : (1.2+rnd()*9));
+        const qty = +(areaHa * yieldByHa).toFixed(2);
+        const month = 1 + Math.floor(rnd()*12);
+        const plantMonth = Math.max(1, month - 3);
+        const harvestDate = new Date(2025, month-1, 5 + Math.floor(rnd()*22));
+        const plantDate = new Date(2025, plantMonth-1, 5 + Math.floor(rnd()*22));
+        const lat = +(d.center[0] + (rnd()-0.5)*0.30).toFixed(5);
+        const lng = +(d.center[1] + (rnd()-0.5)*0.30).toFixed(5);
+        rows.push({
+          id: counter, code: `SV-${d.id}-2026-${String(counter).padStart(4,'0')}`,
+          farm: farmName, zone, deptId: d.id, dept: d.name, muni,
+          product: prod.n, productColor: prod.c, unit: prod.u,
+          areaHa, qty,
+          plantDate: plantDate.toISOString().slice(0,10),
+          harvestDate: harvestDate.toISOString().slice(0,10),
+          monthIdx: harvestDate.getMonth(), status, cert, lat, lng,
+          price: +(qty * (60 + rnd()*260)).toFixed(2)
+        });
+        counter++;
+      }
+    });
+  });
+  return rows;
+}
+const DATA = buildDataset();
+
+/* ==========================================================
+   3. ESTADO
+========================================================== */
+const state = { dept:'', muni:'', prod:'', status:'', q:'', selectedDept:null, openRows:new Set() };
+
+function filtered(){
+  return DATA.filter(r => {
+    if (state.dept && r.deptId !== state.dept) return false;
+    if (state.muni && r.muni !== state.muni) return false;
+    if (state.prod && r.product !== state.prod) return false;
+    if (state.status && r.status !== state.status) return false;
+    if (state.q){
+      const q = state.q.toLowerCase();
+      if (!r.farm.toLowerCase().includes(q) && !r.code.toLowerCase().includes(q)) return false;
+    }
+    return true;
+  });
+}
+
+/* ==========================================================
+   4. MAPA CON OPENSTREETMAP
+========================================================== */
+let map, geoLayer, farmLayer;
+const deptLayers = {};
+
+function initMap(){
+  map = L.map('map', {
+    center: SV_CENTER,
+    zoom: 9,
+    zoomControl: true,
+    maxBounds: SV_BOUNDS,
+    maxBoundsViscosity: 0.85,
+    minZoom: 8
+  });
+
+  // Capa base: OpenStreetMap estándar (gratuita, sin API key)
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> contributors',
+    maxZoom: 19,
+    subdomains: 'abc',
+    crossOrigin: true
+  }).addTo(map);
+
+  loadDepartments();
+}
+
+async function loadDepartments(){
+  const fallbackUrl = 'https://raw.githubusercontent.com/wmgeolab/geoBoundaries/main/releaseData/gbOpen/SLV/ADM1/geoBoundaries-SLV-ADM1.geojson';
+  let geojson = null;
+  try { const res = await fetch(fallbackUrl); if (res.ok) geojson = await res.json(); } catch(e){}
+  if (!geojson){
+    try {
+      const apiRes = await fetch('https://www.geoboundaries.org/api/current/gbOpen/SLV/ADM1/');
+      if (apiRes.ok){
+        const meta = await apiRes.json();
+        const url = meta.gjDownloadURL || meta.simplifiedGeometryGeoJSON;
+        if (url){ const r2 = await fetch(url); if (r2.ok) geojson = await r2.json(); }
+      }
+    } catch(e){}
+  }
+  if (!geojson){ console.warn('GeoJSON no disponible, usando respaldo.'); geojson = getFallbackGeoJSON(); }
+  renderGeoJSON(geojson);
+}
+
+function getFallbackGeoJSON(){
+  const features = DEPTS.map(d => {
+    const c = d.center; const dLat=0.18, dLng=0.18;
+    return { type:'Feature', properties:{ shapeName:d.name, deptId:d.id },
+      geometry:{ type:'Polygon', coordinates:[[ [c[1]-dLng,c[0]-dLat],[c[1]+dLng,c[0]-dLat],[c[1]+dLng,c[0]+dLat],[c[1]-dLng,c[0]+dLat],[c[1]-dLng,c[0]-dLat] ]] } };
+  });
+  return { type:'FeatureCollection', features };
+}
+
+function normalizeName(raw){ return raw ? raw.replace(/^Departamento de\s+/i,'').replace(/^Departamento del\s+/i,'').trim() : ''; }
+function getDeptIdFromName(name){
+  const n = normalizeName(name).toLowerCase();
+  const f = DEPTS.find(d => d.name.toLowerCase() === n);
+  return f ? f.id : null;
+}
+
+function renderGeoJSON(geojson){
+  geoLayer = L.geoJSON(geojson, {
+    style: feature => {
+      const name = feature.properties.shapeName || feature.properties.NAME_1 || '';
+      const id = getDeptIdFromName(name);
+      const has = DATA.some(r => r.deptId === id);
+      return { fillColor: has ? '#8fd4a9' : '#e2efe6', weight: 1.5, opacity: 1, color: '#ffffff', fillOpacity: 0.55 };
+    },
+    onEachFeature: (feature, layer) => {
+      const name = feature.properties.shapeName || feature.properties.NAME_1 || '';
+      const id = getDeptIdFromName(name);
+      if (id){ deptLayers[id] = layer; layer._deptId = id; }
+      layer.on({
+        mouseover: e => {
+          e.target.setStyle({ weight: 2.5, color: '#0c5133', fillOpacity: 0.75 });
+          const cnt = DATA.filter(r => r.deptId === id).length;
+          e.target.bindTooltip(`<b>${normalizeName(name)}</b><br>${cnt} granjas`, { sticky:true }).openTooltip();
+        },
+        mouseout: e => geoLayer.resetStyle(e.target),
+        click: e => { if (e.target._deptId) selectDept(e.target._deptId); }
+      });
+    }
+  }).addTo(map);
+  try { map.fitBounds(geoLayer.getBounds(), { padding:[20,20] }); } catch(e){}
+  renderFarmMarkers();
+}
+
+function renderFarmMarkers(){
+  if (farmLayer) map.removeLayer(farmLayer);
+  farmLayer = L.layerGroup().addTo(map);
+  filtered().forEach(r => {
+    const m = L.circleMarker([r.lat, r.lng], {
+      radius: 4, fillColor: r.productColor, color: '#ffffff', weight: 1.2, opacity: 1, fillOpacity: 0.9
+    });
+    m.bindPopup(`<b>${r.product}</b><br>${r.farm}<br><span style="color:#5b7268">${r.dept} · ${r.muni}</span><br><b>${nf1(r.qty)} ${r.unit}</b> · ${r.status}`);
+    m.addTo(farmLayer);
+  });
+}
+
+function updateMapStyles(){
+  if (!geoLayer) return;
+  const active = new Set(filtered().map(r => r.deptId));
+  geoLayer.eachLayer(l => {
+    const id = l._deptId; if (!id) return;
+    const sel = state.dept === id; const has = active.has(id);
+    l.setStyle({
+      fillColor: sel ? '#157f4a' : (has ? '#8fd4a9' : '#e2efe6'),
+      weight: sel ? 3 : 1.5,
+      color: sel ? '#0c5133' : '#ffffff',
+      fillOpacity: sel ? 0.75 : 0.55
+    });
+  });
+  renderFarmMarkers();
+}
+
+function selectDept(id){
+  state.dept = id; state.muni = ''; state.selectedDept = id;
+  $('#fDept').value = id; refreshMunis(); syncIntelSelect(); renderAll(); runSearch();
+  if (deptLayers[id]) { try { map.fitBounds(deptLayers[id].getBounds(), { padding:[30,30], maxZoom:11 }); } catch(e){} }
+}
+
+/* ==========================================================
+   5. CONTROLES
+========================================================== */
+function buildFilters(){
+  const fDept = $('#fDept');
+  DEPTS.forEach(d => fDept.insertAdjacentHTML('beforeend', `<option value="${d.id}">${d.name}</option>`));
+  const fProd = $('#fProd');
+  PRODUCTS.forEach(p => fProd.insertAdjacentHTML('beforeend', `<option value="${p.n}">${p.n}</option>`));
+  const intelSel = $('#intelSelect');
+  DEPTS.forEach(d => intelSel.insertAdjacentHTML('beforeend', `<option value="${d.id}">${d.name}</option>`));
+
+  fDept.addEventListener('change', () => {
+    state.dept = fDept.value; state.muni = ''; refreshMunis();
+    if (state.dept){ state.selectedDept = state.dept; syncIntelSelect(); runSearch(); } else state.selectedDept = null;
+    renderAll();
+  });
+  $('#fMuni').addEventListener('change', e => { state.muni = e.target.value; renderAll(); });
+  fProd.addEventListener('change', e => { state.prod = e.target.value; renderAll(); });
+  $('#fStatus').addEventListener('change', e => { state.status = e.target.value; renderAll(); });
+  $('#fSearch').addEventListener('input', e => { state.q = e.target.value.trim(); renderAll(); });
+  $('#btnReset').addEventListener('click', () => {
+    state.dept=''; state.muni=''; state.prod=''; state.status=''; state.q='';
+    $('#fDept').value=''; $('#fProd').value=''; $('#fStatus').value=''; $('#fSearch').value='';
+    state.selectedDept = null; refreshMunis(); renderAll();
+    if (geoLayer) map.fitBounds(geoLayer.getBounds(), { padding:[20,20] });
+  });
+  $('#btnExpandAll').addEventListener('click', () => {
+    const rows = $$('.trow'); const allOpen = rows.every(r=>r.classList.contains('open'));
+    rows.forEach(r=>r.classList.toggle('open', !allOpen));
+  });
+  $('#btnSearch').addEventListener('click', () => {
+    const id = $('#intelSelect').value; if (id){ state.selectedDept = id; runSearch(); }
+  });
+  $('#intelSelect').addEventListener('change', e => { state.selectedDept = e.target.value || null; updateMapStyles(); });
+}
+
+function refreshMunis(){
+  const sel = $('#fMuni'); sel.innerHTML = '<option value="">Todos</option>';
+  const d = DEPTS.find(x=>x.id===state.dept);
+  const list = d ? d.munis : [...new Set(DATA.map(r=>r.muni))].sort();
+  list.forEach(m => sel.insertAdjacentHTML('beforeend', `<option value="${m}">${m}</option>`));
+}
+function syncIntelSelect(){ if (state.selectedDept) $('#intelSelect').value = state.selectedDept; }
+
+/* ==========================================================
+   6. KPIs Y GRÁFICOS
+========================================================== */
+function renderKPIs(rows){
+  $('#kFarm').textContent = nf(rows.length);
+  const totalVol = rows.reduce((s,r)=>s+r.qty,0);
+  $('#kVol').innerHTML = nf1(totalVol) + '<small>t</small>';
+  $('#kProd').textContent = new Set(rows.map(r=>r.product)).size;
+  $('#kMuni').textContent = new Set(rows.map(r=>r.muni)).size;
+  const cert = rows.filter(r => r.cert==='Agroecológico' || r.cert==='Orgánico').length;
+  $('#kCert').innerHTML = (rows.length ? Math.round(cert/rows.length*100) : 0) + '<small>%</small>';
+  const scope = state.dept ? DEPTS.find(d=>d.id===state.dept).name : 'todo el país';
+  $('#kFarmHint').textContent = 'en ' + scope;
+}
+
+function renderProducts(rows){
+  const map = {}; rows.forEach(r => map[r.product] = (map[r.product]||0) + r.qty);
+  const arr = Object.entries(map).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  const max = Math.max(...arr.map(a=>a[1]), 1);
+  const el = $('#chartProducts');
+  if (!arr.length){ el.innerHTML = '<div class="empty">Sin datos para los filtros</div>'; return; }
+  el.innerHTML = arr.map(([name,val])=>{
+    const color = (PRODUCTS.find(p=>p.n===name)||{}).c || '#157f4a';
+    return `<div class="bar-row"><span class="bar-label" title="${name}">${name}</span><div class="bar-track"><div class="bar-fill" style="width:${(val/max*100).toFixed(1)}%;background:${color}"></div></div><span class="bar-val">${nf1(val)} t</span></div>`;
+  }).join('');
+}
+
+const STATUS_COLORS = {'En campo':'#3b82f6','Cosechado':'#f59e0b','Almacenado':'#10b981','En tránsito':'#8b5cf6','Comercializado':'#16a34a'};
+
+function renderDonut(rows){
+  const counts = {}; rows.forEach(r => counts[r.status] = (counts[r.status]||0)+1);
+  const entries = Object.entries(counts); const total = rows.length;
+  const donut = $('#donut'); const legend = $('#donutLegend');
+  $('#donutTotal').textContent = nf(total);
+  if (!total){ donut.style.background = '#eef3ef'; legend.innerHTML = '<div style="color:var(--muted)">Sin datos</div>'; return; }
+  let acc = 0;
+  const stops = entries.map(([k,v])=>{ const start = acc/total*100; acc += v; const end = acc/total*100; return `${STATUS_COLORS[k]||'#94a3b8'} ${start.toFixed(2)}% ${end.toFixed(2)}%`; }).join(', ');
+  donut.style.background = `conic-gradient(${stops})`;
+  legend.innerHTML = entries.map(([k,v])=>`<div><span class="k"><i style="background:${STATUS_COLORS[k]||'#94a3b8'}"></i>${k}</span><b>${nf(v)}</b></div>`).join('');
+}
+
+function renderLine(rows){
+  const months = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const vals = new Array(12).fill(0); rows.forEach(r => vals[r.monthIdx] += r.qty);
+  const max = Math.max(...vals, 1); const W = 400, H = 130, pad = 8; const stepX = (W - pad*2) / 11;
+  const pts = vals.map((v,i)=>{ const x = pad + i*stepX; const y = H - pad - (v/max)*(H - pad*2 - 10); return [x,y]; });
+  const line = pts.map(p=>p.join(',')).join(' '); const area = `${pad},${H-pad} ${line} ${W-pad},${H-pad}`;
+  let gridLines = ''; for(let i=0;i<=3;i++){ const y = pad + i*((H-pad*2)/3); gridLines += `<line x1="${pad}" y1="${y}" x2="${W-pad}" y2="${y}" stroke="#e6eee8" stroke-width="1"/>`; }
+  const dots = pts.map((p,i)=>`<circle cx="${p[0]}" cy="${p[1]}" r="3" fill="#157f4a"><title>${months[i]}: ${nf1(vals[i])} t</title></circle>`).join('');
+  const labels = months.map((m,i)=>`<text x="${pts[i][0]}" y="${H-1}" font-size="7" fill="#7b9186" text-anchor="middle">${m}</text>`).join('');
+  $('#chartLine').innerHTML = `${gridLines}<polygon points="${area}" fill="rgba(21,127,74,.12)"/><polyline points="${line}" fill="none" stroke="#157f4a" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>${dots}${labels}`;
+}
+
+function renderDepts(rows){
+  const map = {}; rows.forEach(r => map[r.dept] = (map[r.dept]||0) + r.qty);
+  const arr = Object.entries(map).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  const max = Math.max(...arr.map(a=>a[1]), 1); const el = $('#chartDepts');
+  if (!arr.length){ el.innerHTML = '<div class="empty">Sin datos</div>'; return; }
+  el.innerHTML = arr.map(([name,val])=>`<div class="bar-row"><span class="bar-label" title="${name}">${name}</span><div class="bar-track"><div class="bar-fill" style="width:${(val/max*100).toFixed(1)}%;background:linear-gradient(90deg,#157f4a,#0e9f6e)"></div></div><span class="bar-val">${nf1(val)} t</span></div>`).join('');
+}
+
+/* ==========================================================
+   7. TRAZABILIDAD
+========================================================== */
+const BADGE_CLASS = {'En campo':'b-campo','Cosechado':'b-cosecha','Almacenado':'b-almacen','En tránsito':'b-transito','Comercializado':'b-venta'};
+const STATUS_ORDER = ['En campo','Cosechado','Almacenado','En tránsito','Comercializado'];
+
+function renderTrace(rows){
+  $('#traceCount').textContent = nf(rows.length);
+  const list = $('#traceList');
+  if (!rows.length){ list.innerHTML = '<div class="empty">No hay lotes que coincidan con los filtros seleccionados.</div>'; return; }
+  list.innerHTML = rows.slice(0, 120).map(r => {
+    const idx = STATUS_ORDER.indexOf(r.status);
+    const steps = [
+      {n:'Siembra', t:'Establecimiento', d:r.plantDate},
+      {n:'Cosecha', t:'Recolección', d:r.harvestDate},
+      {n:'Almacenamiento', t:'Centro de acopio', d: idx>=2 ? 'Registrado' : 'Pendiente'},
+      {n:'Transporte', t:'Logística', d: idx>=3 ? 'Despachado' : 'Pendiente'},
+      {n:'Mercado', t:'Comercialización', d: idx>=4 ? 'Vendido' : 'Pendiente'}
+    ];
+    const chain = steps.map((s,i)=>`<div class="chain-step ${i<=idx ? 'done':'pending'}"><div class="n">${s.n}</div><div class="t">${s.t}</div><div class="d">${s.d}</div></div>`).join('');
+    return `
+    <div class="trow ${state.openRows.has(r.id)?'open':''}" data-row="${r.id}">
+      <div class="trow-head" data-toggle="${r.id}">
+        <span class="code">${r.code}</span>
+        <span class="tprod">${r.product}<small>${r.farm}</small></span>
+        <span style="color:var(--muted);font-size:.78rem">${r.dept} · ${r.muni}<br><small>${r.zone}</small></span>
+        <span style="font-weight:700">${nf1(r.qty)} ${r.unit}</span>
+        <span><span class="badge ${BADGE_CLASS[r.status]}">${r.status}</span></span>
+        <span class="chev">›</span>
+      </div>
+      <div class="trow-body">
+        <div class="chain">${chain}</div>
+        <div class="detail-grid">
+          <div><span>Área</span><b>${r.areaHa} ha</b></div>
+          <div><span>Certificación</span><b>${r.cert}</b></div>
+          <div><span>Departamento</span><b>${r.dept}</b></div>
+          <div><span>Municipio</span><b>${r.muni}</b></div>
+          <div><span>Zona agroecológica</span><b>${r.zone}</b></div>
+          <div><span>Valor estimado</span><b>$${nf(r.price)}</b></div>
+          <div><span>Fecha de siembra</span><b>${r.plantDate}</b></div>
+          <div><span>Fecha de cosecha</span><b>${r.harvestDate}</b></div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+  $$('#traceList .trow-head').forEach(h => {
+    h.addEventListener('click', () => {
+      const id = Number(h.dataset.toggle); const row = h.closest('.trow');
+      row.classList.toggle('open'); if (row.classList.contains('open')) state.openRows.add(id); else state.openRows.delete(id);
+    });
+  });
+}
+
+/* ==========================================================
+   8. INTELIGENCIA MULTIFUENTE
+========================================================== */
+const WB_INDICATORS = [
+  {code:'AG.LND.AGRI.ZS',  label:'Tierra agrícola (% del territorio)'},
+  {code:'AG.YLD.CREL.KG',  label:'Rendimiento de cereales (kg/ha)'},
+  {code:'AG.PRD.FOOD.XD',  label:'Índice de producción de alimentos'},
+  {code:'SL.AGR.EMPL.ZS',  label:'Empleo en agricultura (% total)'}
+];
+
+async function fetchWikipediaSummary(title){
+  const url = `https://es.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}?redirect=true`;
+  const res = await fetch(url, {headers:{'Accept':'application/json'}}); if (!res.ok) throw new Error('HTTP '+res.status); return res.json();
+}
+async function fetchWikipediaSearch(q){
+  const url = `https://es.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(q)}&srlimit=4&format=json&origin=*`;
+  const res = await fetch(url); if (!res.ok) throw new Error('HTTP '+res.status); return res.json();
+}
+async function fetchWorldBank(code){
+  const url = `https://api.worldbank.org/v2/country/SLV/indicator/${code}?format=json&per_page=8&date=2016:2024`;
+  const res = await fetch(url); if (!res.ok) throw new Error('HTTP '+res.status);
+  const json = await res.json(); const series = Array.isArray(json) && json[1] ? json[1] : [];
+  const valid = series.filter(d => d.value !== null).sort((a,b)=> Number(b.date) - Number(a.date));
+  return valid[0] || null;
+}
+function relevanceScore(text, keywords){ const t = (text||'').toLowerCase(); let s=0; keywords.forEach(k=>{ if (t.includes(k.toLowerCase())) s+=6; }); return s; }
+
+async function runSearch(){
+  const id = state.selectedDept;
+  if (!id){ $('#intelBody').innerHTML = '<div class="empty">Selecciona un departamento en el mapa para ejecutar la búsqueda.</div>'; return; }
+  const dept = DEPTS.find(d=>d.id===id); const localRows = DATA.filter(r=>r.deptId===id);
+  $('#intelTitle').textContent = `🛰️ Inteligencia territorial · ${dept.name}`;
+  $('#intelSub').textContent = `Motor de búsqueda multifuente sobre ${dept.munis.length} municipios y ${localRows.length} granjas.`;
+  $('#intelSelect').value = id;
+  $('#intelBody').innerHTML = `<div class="loading"><div class="spinner"></div><div>Consultando fuentes externas…<br><small>Wikipedia REST · Wikipedia Search · Banco Mundial Open Data · Índice institucional</small></div></div>`;
+
+  const tasks = [ fetchWikipediaSummary(dept.name).catch(()=>null), fetchWikipediaSearch(`agricultura ${dept.name} El Salvador`).catch(()=>null), ...WB_INDICATORS.map(i => fetchWorldBank(i.code).catch(()=>null)) ];
+  const results = await Promise.all(tasks); const wikiSummary = results[0]; const wikiSearch = results[1]; const wbResults = results.slice(2);
+  const cards = [];
+
+  if (wikiSummary && wikiSummary.extract){
+    const score = 78 + relevanceScore(wikiSummary.extract, ['agricultura','café','maíz','frijol','producción','clima','suelo']);
+    cards.push({ source:'Wikipedia · Perfil del departamento', badge:'api', title:`${dept.name} — contexto territorial`, text: wikiSummary.extract, url: wikiSummary.content_urls?.desktop?.page || `https://es.wikipedia.org/wiki/${encodeURIComponent(dept.name)}`, score: Math.min(score, 99) });
+  }
+  if (wikiSearch?.query?.search?.length){
+    wikiSearch.query.search.forEach(hit => {
+      const clean = hit.snippet.replace(/<[^>]+>/g,'');
+      cards.push({ source:'Wikipedia · Búsqueda temática', badge:'api', title: hit.title, text: clean + '…', url: `https://es.wikipedia.org/wiki/${encodeURIComponent(hit.title.replace(/ /g,'_'))}`, score: Math.min(60 + relevanceScore(clean,['agricultura','café','maíz','frijol','clima','suelo','producción']) + Math.round(hit.size/4000), 96) });
+    });
+  }
+  wbResults.forEach((r, i) => { if (r){ cards.push({ source:'Banco Mundial · Open Data', badge:'api', title: WB_INDICATORS[i].label, text: `Valor más reciente para El Salvador: ${Number(r.value).toLocaleString('es-SV',{maximumFractionDigits:2})} (año ${r.date}). Indicador ${r.indicator?.id || WB_INDICATORS[i].code}.`, url: `https://data.worldbank.org/indicator/${WB_INDICATORS[i].code}?locations=SV`, score: 82 }); } });
+
+  const instSources = [
+    {name:'MAG · Ministerio de Agricultura y Ganadería', url:'https://www.mag.gob.sv'},
+    {name:'CENTA · Centro Nacional de Tecnología Agropecuaria', url:'https://www.centa.gob.sv'},
+    {name:'MARN · Ministerio de Medio Ambiente', url:'https://www.marn.gob.sv'},
+    {name:'BCR · Banco Central de Reserva', url:'https://www.bcr.gob.sv'},
+    {name:'FAO El Salvador', url:'https://www.fao.org/el-salvador'}
+  ];
+  instSources.forEach(s => { cards.push({ source:'Índice institucional', badge:'inst', title: s.name, text: `Repositorio oficial con publicaciones y estadísticas aplicables a ${dept.name}.`, url: s.url, score: 65 + relevanceScore(s.name, ['agricultura','agro','ambiente']) }); });
+
+  const totalVol = localRows.reduce((s,r)=>s+r.qty,0); const prodCount = {}; localRows.forEach(r => prodCount[r.product] = (prodCount[r.product]||0)+1);
+  const topProd = Object.entries(prodCount).sort((a,b)=>b[1]-a[1]).slice(0,3).map(x=>x[0]).join(', ') || 'sin registros';
+  cards.push({ source:'Data Lake AgroTrace SV', badge:'local', title:`Registro propio · ${dept.name}`, text:`${localRows.length} granjas trazadas en ${new Set(localRows.map(r=>r.muni)).size} municipios. Volumen: ${nf1(totalVol)} t. Rubros: ${topProd}. Certificación agroecológica/orgánica: ${localRows.filter(r=>r.cert==='Agroecológico'||r.cert==='Orgánico').length} lotes.`, url: '#', score: 94 });
+
+  cards.sort((a,b)=>b.score - a.score);
+  const wbCards = WB_INDICATORS.map((ind,i)=>{ const r = wbResults[i]; if (!r) return ''; return `<div class="wb-card"><div class="lbl">${ind.label}</div><div class="v">${Number(r.value).toLocaleString('es-SV',{maximumFractionDigits:1})}</div><div class="y">El Salvador · ${r.date}</div></div>`; }).join('');
+  const offline = !wikiSummary && !wikiSearch && wbResults.every(x=>!x);
+  const notice = offline ? `<div class="notice">⚠️ Sin conexión a APIs externas. Se muestran resultados del índice institucional y del Data Lake local.</div>` : '';
+
+  $('#intelBody').innerHTML = `
+    ${notice}
+    <div class="card" style="margin-bottom:18px"><h3>🌍 Indicadores nacionales de contexto · Banco Mundial</h3><div class="sub">Datos en vivo desde la API de Open Data (país: El Salvador)</div><div class="wb-grid" style="margin-bottom:0">${wbCards || '<div class="empty">Sin respuesta de la API</div>'}</div></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:10px"><h3 style="font-size:.95rem">📑 Resultados del motor de búsqueda multifuente</h3><span class="pill" style="background:#e8f5ee;color:var(--primary-dark);border-color:#c9e6d5">${cards.length} resultados · ordenados por relevancia</span></div>
+    <div class="source-grid">${cards.map(c=>`<div class="src-card"><div class="src-top"><span class="src-badge ${c.badge}">${c.source}</span><span class="score">${c.score}</span></div><h4>${c.title}</h4><p>${c.text}</p>${c.url && c.url !== '#' ? `<a href="${c.url}" target="_blank" rel="noopener">${c.url}</a>` : `<a style="color:var(--muted)">Fuente interna · AgroTrace SV</a>`}</div>`).join('')}</div>`;
+}
+
+/* ==========================================================
+   9. REPORTES PDF
+========================================================== */
+function generateGeneralPDF(){
+  const rows = filtered();
+  const totalVol = rows.reduce((s,r)=>s+r.qty,0);
+  const prodMap = {}; rows.forEach(r => prodMap[r.product] = (prodMap[r.product]||0) + r.qty);
+  const topProds = Object.entries(prodMap).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  const statusMap = {}; rows.forEach(r => statusMap[r.status] = (statusMap[r.status]||0)+1);
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF('p','mm','a4');
+  const pageW = doc.internal.pageSize.getWidth();
+  let y = 20;
+
+  doc.setFontSize(18); doc.setTextColor(21,127,74);
+  doc.text('AgroTrace SV · Reporte General', 15, y); y += 8;
+  doc.setFontSize(10); doc.setTextColor(100);
+  doc.text(`Generado: ${new Date().toLocaleString('es-SV')}`, 15, y); y += 6;
+  doc.text(`Filtros: Depto=${state.dept||'Todos'} · Municipio=${state.muni||'Todos'} · Producto=${state.prod||'Todos'} · Estado=${state.status||'Todos'}`, 15, y); y += 10;
+
+  doc.setDrawColor(200); doc.line(15, y, pageW-15, y); y += 8;
+  doc.setFontSize(12); doc.setTextColor(18,40,30); doc.text('Resumen ejecutivo', 15, y); y += 7;
+  doc.setFontSize(10);
+  doc.text(`Granjas registradas: ${nf(rows.length)}`, 20, y); y += 6;
+  doc.text(`Volumen total: ${nf1(totalVol)} t`, 20, y); y += 6;
+  doc.text(`Productos activos: ${new Set(rows.map(r=>r.product)).size}`, 20, y); y += 6;
+  doc.text(`Municipios cubiertos: ${new Set(rows.map(r=>r.muni)).size}`, 20, y); y += 6;
+  const cert = rows.filter(r => r.cert==='Agroecológico' || r.cert==='Orgánico').length;
+  doc.text(`Lotes certificados: ${rows.length ? Math.round(cert/rows.length*100) : 0}%`, 20, y); y += 12;
+
+  doc.setFontSize(12); doc.setTextColor(18,40,30); doc.text('Top productos por volumen', 15, y); y += 7;
+  doc.setFontSize(10);
+  topProds.forEach(([name,val]) => { doc.text(`${name}: ${nf1(val)} t`, 20, y); y += 6; });
+  y += 6;
+
+  doc.setFontSize(12); doc.setTextColor(18,40,30); doc.text('Distribución por estado', 15, y); y += 7;
+  doc.setFontSize(10);
+  Object.entries(statusMap).forEach(([s,c]) => { doc.text(`${s}: ${nf(c)} lotes`, 20, y); y += 6; });
+
+  doc.save('AgroTrace_Reporte_General.pdf');
+}
+
+function generateDeptPDF(){
+  if (!state.dept){ alert('Selecciona un departamento en el Panel de Control para generar este reporte.'); return; }
+  const dept = DEPTS.find(d=>d.id===state.dept);
+  const rows = DATA.filter(r => r.deptId === state.dept);
+  const totalVol = rows.reduce((s,r)=>s+r.qty,0);
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF('p','mm','a4');
+  const pageW = doc.internal.pageSize.getWidth();
+  let y = 20;
+
+  doc.setFontSize(18); doc.setTextColor(21,127,74);
+  doc.text(`Reporte · ${dept.name}`, 15, y); y += 8;
+  doc.setFontSize(10); doc.setTextColor(100);
+  doc.text(`Generado: ${new Date().toLocaleString('es-SV')}`, 15, y); y += 6;
+  doc.text(`Granjas: ${rows.length} · Volumen: ${nf1(totalVol)} t · Municipios: ${new Set(rows.map(r=>r.muni)).size}`, 15, y); y += 10;
+
+  doc.setDrawColor(200); doc.line(15, y, pageW-15, y); y += 8;
+  doc.setFontSize(11); doc.setTextColor(18,40,30); doc.text('Detalle de granjas', 15, y); y += 6;
+  doc.setFontSize(9);
+  doc.text('Código', 15, y); doc.text('Granja', 55, y); doc.text('Municipio', 95, y); doc.text('Producto', 135, y); doc.text('Cantidad', 170, y);
+  y += 5; doc.line(15, y, pageW-15, y); y += 4;
+
+  rows.forEach(r => {
+    if (y > 270){ doc.addPage(); y = 20; doc.setFontSize(9); doc.text('Código', 15, y); doc.text('Granja', 55, y); doc.text('Municipio', 95, y); doc.text('Producto', 135, y); doc.text('Cantidad', 170, y); y += 5; doc.line(15, y, pageW-15, y); y += 4; }
+    doc.text(r.code, 15, y);
+    doc.text(r.farm.substring(0,28), 55, y);
+    doc.text(r.muni.substring(0,22), 95, y);
+    doc.text(r.product, 135, y);
+    doc.text(`${nf1(r.qty)} ${r.unit}`, 170, y);
+    y += 5;
+  });
+
+  doc.save(`AgroTrace_Reporte_${dept.name.replace(/\s+/g,'_')}.pdf`);
+}
+
+function generateTracePDF(){
+  const rows = filtered();
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF('p','mm','a4');
+  const pageW = doc.internal.pageSize.getWidth();
+  let y = 20;
+
+  doc.setFontSize(18); doc.setTextColor(21,127,74);
+  doc.text('Reporte de Trazabilidad', 15, y); y += 8;
+  doc.setFontSize(10); doc.setTextColor(100);
+  doc.text(`Generado: ${new Date().toLocaleString('es-SV')}`, 15, y); y += 6;
+  doc.text(`Lotes incluidos: ${rows.length}`, 15, y); y += 10;
+
+  doc.setDrawColor(200); doc.line(15, y, pageW-15, y); y += 8;
+  doc.setFontSize(8);
+  doc.text('Código', 15, y); doc.text('Granja', 55, y); doc.text('Depto', 95, y); doc.text('Producto', 125, y); doc.text('Cant.', 155, y); doc.text('Estado', 175, y);
+  y += 5; doc.line(15, y, pageW-15, y); y += 4;
+
+  rows.forEach(r => {
+    if (y > 270){ doc.addPage(); y = 20; doc.setFontSize(8); doc.text('Código', 15, y); doc.text('Granja', 55, y); doc.text('Depto', 95, y); doc.text('Producto', 125, y); doc.text('Cant.', 155, y); doc.text('Estado', 175, y); y += 5; doc.line(15, y, pageW-15, y); y += 4; }
+    doc.text(r.code, 15, y);
+    doc.text(r.farm.substring(0,28), 55, y);
+    doc.text(r.dept.substring(0,14), 95, y);
+    doc.text(r.product, 125, y);
+    doc.text(`${nf1(r.qty)} ${r.unit}`, 155, y);
+    doc.text(r.status, 175, y);
+    y += 5;
+  });
+
+  doc.save('AgroTrace_Reporte_Trazabilidad.pdf');
+}
+
+/* ==========================================================
+   10. RENDER GLOBAL
+========================================================== */
+function renderAll(){
+  const rows = filtered();
+  renderKPIs(rows); renderProducts(rows); renderDonut(rows); renderLine(rows); renderDepts(rows); renderTrace(rows); updateMapStyles();
+}
+
+/* ==========================================================
+   11. TABS
+========================================================== */
+function buildTabs(){
+  $$('.tab').forEach(t => {
+    t.addEventListener('click', () => {
+      $$('.tab').forEach(x=>x.classList.remove('active'));
+      $$('.panel').forEach(x=>x.classList.remove('active'));
+      t.classList.add('active'); $('#panel-' + t.dataset.tab).classList.add('active');
+      window.scrollTo({top:0, behavior:'smooth'});
+      if (t.dataset.tab === 'panel' && map) setTimeout(()=>map.invalidateSize(), 200);
+    });
+  });
+}
+
+/* ==========================================================
+   12. RELOJ
+========================================================== */
+function clock(){
+  const d = new Date();
+  $('#liveClock').textContent = d.toLocaleDateString('es-SV') + ' · ' + d.toLocaleTimeString('es-SV', {hour12:false});
+}
+
+/* ==========================================================
+   13. INIT
+========================================================== */
+function init(){
+  buildTabs(); buildFilters(); initMap(); refreshMunis(); renderAll(); clock(); setInterval(clock, 1000);
+}
+init();
+</script>
+</body>
+</html>
